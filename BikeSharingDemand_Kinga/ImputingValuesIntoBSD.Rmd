@@ -1,0 +1,172 @@
+---
+title: "Bike Share Demand"
+author: "Kinga"
+date: "Thursday, February 26, 2015"
+output: html_document
+---
+##Reading in the data
+
+```{r}
+df <- read.csv("train.csv")
+```
+
+
+##Examininig the data
+
+```{r}
+head(df)
+str(df$datetime)
+tail(df)
+nrow(df)
+names(df)
+```
+
+##Preparing the data
+
+####Locating the missing rows
+
+
+```{r}
+#Finding the missing rows:
+library(lubridate)
+class(df$datetime)
+df$datetime <- ymd_hms(df$datetime)
+class(df$datetime)
+head(df$datetime)
+problemRows <- c()
+#gap <- list()
+for (i in 2:nrow(df)){
+        if ((as.numeric(df$datetime[i]-df$datetime[i-1], units="hours")>1) & 
+                    (as.numeric(df$datetime[i]-df$datetime[i-1], units="hours")< 14)) {
+                problemRows <- c(problemRows,i)
+                #gap[[i]]<-(df$datetime[i]-df$datetime[i-1])
+        }
+}
+problemRows
+#finding the gap at the problem rows
+gap <- list()
+
+for (i in problemRows){
+        #print(i)
+        gap[[as.character(i)]]<-(as.numeric(df$datetime[i]-df$datetime[i-1], units="hours"))
+        
+}
+gap[[1]]
+gap[[2]]
+head(gap, length(problemRows))
+#the class of the difference is
+
+class(df$datetime[31]-df$datetime[30])
+```
+So, what is the lowest count, i.e. the lowest number of bikes rented?
+
+```{r}
+min(df$count)
+```
+
+
+At what time did the missing data points occur?
+
+```{r}
+for (i in problemRows){
+        print(i)
+        print(gap[[as.character(i)]])
+        print(df[i-1,1])
+        print(df[i, 1])
+        
+}
+
+```
+
+And the answer is that the missing data points always occur after midnight and before 6 am, with the exception of thte interval between 
+
+```{r}
+df$datetime[396]
+```
+
+and 
+
+```{r}
+df$datetime[397]
+
+
+```
+
+and the interval 
+
+```{r}
+df[3723,]
+df[3724,]
+
+```
+
+but where the time difference is
+
+```{r}
+as.numeric(df$datetime[3724]-df$datetime[3723], units="hours")
+
+```
+
+
+So it seems reasonable to me that the missing data values correspond to the times when 
+no one rented a bike and "count"=0.
+
+So, I will insert the missing rows, by assuming that count=0 for all those times.
+I will do this even for the stretch of 13 hours of missing data on 2011-01-17 and 
+2011-01-18 **for now**.  
+
+####Imputing values for the rows that are missing
+
+
+```{r}
+for (i in problemRows){
+        new_row<-df[(i-1),]
+        new_row$temp <- as.numeric(mean(df$temp[(i-1):i]))
+        new_row$atemp <- as.numeric(mean(df$atemp[(i-1):i]))
+        new_row$windspeed <- as.numeric(mean(df$windspeed[(i-1):i]))
+        new_row$humidity <- as.integer(mean(df$humidity[(i-1):i]))
+        new_row$casual <- 0
+        new_row$registered <- 0
+        new_row$count <- 0
+        for (j in 1 : (gap[[as.character(i)]]-1)){
+              new_row$datetime <- new_row$datetime +hms("1 0 0") 
+              df <- rbind(df, new_row)
+              
+        }
+        
+        
+}
+library(dplyr)
+complete_df <- arrange(df, datetime)
+
+```
+
+
+
+
+
+And checking for gaps of less than 14 hours, but more than 1 hour:
+
+```{r}
+new_problem_rows<-c()
+for (i in 2:nrow(complete_df)){
+        if ((as.numeric(complete_df$datetime[i]-complete_df$datetime[i-1], units="hours")>1) & 
+                    (as.numeric(complete_df$datetime[i]-complete_df$datetime[i-1], units="hours")< 14)) {
+                new_problem_rows <- c(new_problem_rows,i)
+                #gap[[i]]<-(df$datetime[i]-df$datetime[i-1])
+        }
+}
+new_problem_rows
+
+
+
+
+```
+
+```{r}
+Jan2011 <- filter(complete_df, datetime < ymd_hms("2011-02-01 00:00:00"))
+Jan2011_incomplete <- filter(df, datetime < ymd_hms("2011-02-01 00:00:00"))
+Feb2011<-filter(complete_df, datetime < ymd_hms("2011-03-01 00:00:00") & datetime >=ymd_hms("2011-02-01 00:00:00"))
+```
+
+

@@ -1,0 +1,209 @@
+---
+title: "Autocorrelation"
+author: "Kinga"
+date: "Wednesday, March 11, 2015"
+output: word_document
+---
+###Definition of Autocorrelation
+
+Given a time series $x_1, x_2, ..., x_t, ..., x_T$, where $x_t$ denotes the 
+observation at time $t$, the time series is said to show autocorrelation if 
+there is correlation between the lagged values of the time series. The autocorrelation
+coefficient $r_{1}$ is the correlation coefficient of lag $1$, i.e. it measures the linear 
+relationship between $x_t$ and $x_{t-1}$ for all time $t$.  In general, the autocorrelation 
+coefficient $r_{i}$ is the correlation coffecient of the time series lagged by $i$, that is 
+it measures the linear relationship between $x_t$ and $x_{t-i}$. 
+
+
+###Example of an Auto Correlated Time Series
+
+Let's create a periodic time series data set with some errors thrown in:
+
+
+```{r}
+aSeq <- sin(seq(0.1*pi, 10*pi, 0.1*pi))
+# generating a list of 100 random numbers with mean 0 and standard deviation of 0.1  
+err <- rnorm(length(aSeq),0, 0.1)  #note: length(aSeq)=100
+new_data <- aSeq + err
+```
+
+Now let's look at this newly created dataset:
+
+```{r}
+par(mfrow=c(1,2))  #arranging the two graphs in one row
+plot(new_data)
+plot(new_data, type="l", col="3")
+```
+
+It does look periodic peppered with some errors, so it should work for our purpose.
+To make it officially a time series, lets apply the $ts()$ function to it:
+
+```{r}
+#creating a monthly time series, beginning at January 2001
+monthlyTS<- ts(new_data, freq = 12, start=c(2001,1))
+plot(monthlyTS, xlim = c(2001, 2009))
+monthlyTS
+#creating a weekly time series beginning at January 2001
+weeklyTS<- ts(new_data, freq = 52, start=c(2001,1))
+plot(weeklyTS, xlim = c(2001, 2003))
+weeklyTS
+```
+
+
+But, we are off track, let's get back to autocorrelation.  Let's create various lagged 
+time series data sets and lets graph them, looking for that linear relationship:
+
+```{r}
+
+l <- length(monthlyTS)
+r <-c()
+par(mfrow=c(1,2))
+for (i in 1:10){
+       lagged<- monthlyTS[(1+i): l]
+       laggedToo = monthlyTS[1:(l-i)]
+       r[i] <- round(cor(lagged, laggedToo),3)
+       
+       plot(lagged, laggedToo, xlab ="Monthly Time Series", ylab =paste("Monthly Time Series Lagged by",i))
+       title(main = paste("Lag ",i), sub = paste("Autocorrelation Coefficient", r[i]),
+      cex.main = 1,   font.main= 3, col.main= "red",
+      cex.sub = 0.75, font.sub = 2, col.sub = "red")
+       if (i <= 5) {
+               abline(a=0, b=1, col=3)
+               }
+       if (i > 5){
+               abline(a=0, b=-1, col=4)
+       }
+      
+       
+}
+```
+
+
+And now I confess that there is an $R$ function that does all this, but I wanted demonstrate
+what the $lag.plot()$ command is about.  
+
+```{r}
+
+lag.plot(monthlyTS, lags=10, do.lines =FALSE)
+```
+
+In fact, the $acf()$ command in $R$ will graph the autocorrelation coefficients versus the lag, and this graph is referred to
+as the auto correlation function or $ACF$.  The data is said to not show auto correlation whenever the auto correlation coefficients
+are close to zero.  The time series that shows no auto correlation is called white noise.   But what does it mean for the auto correlation coefficients to be close to zero?  Well, it turns out that if $95%$ of these coefficients are within $\pm \frac {2} {\sqrt{T}}$ , where $T$ is the length of the time series, then the time series is a white noise series.      
+Let's look at the $ACF$ of our $monthlyTS$:
+
+```{r}
+acf(monthlyTS, lag.max=10, plot = TRUE, main="The ACF of the monthlyTS")
+
+
+```
+
+Note that the length of the time series $monthlyTS$ is 
+
+```{r}
+T <- length(monthlyTS)
+2/sqrt(T)
+-1*2/sqrt(T)
+```
+
+And, so the blue horizontal lines on the above graph represent the upper and lower bounds 
+$\pm \frac {2} {\sqrt{T}}$ .
+
+
+###Example of a White Noise Time Series
+
+Let's generate $100$ uniformly distributed random numbers between $-1$ and $1$.  
+
+```{r}
+white_noise <- runif(100, min=-1, max=1)
+
+```
+ 
+Its histogram should show that it is of  uniform distribution:
+
+```{r}
+
+hist(white_noise, main="Histogram of white_noise")
+
+```
+
+
+Next, let's plot $white\_noise$ first as a scatter plot then as a line plot:
+
+```{r}
+plot(white_noise, main="Scatter plot of white_noise")
+plot(white_noise, type="l", main="The Graph of white_noise")
+
+```
+
+So, the question is, does this data set show auto correlation?
+To find out, let's graph its lagged scatter plots:
+
+```{r}
+
+lag.plot(white_noise, lags=10, do.lines =FALSE)
+
+```
+
+Whew, none of these graph show any evidence of a linear relationship, but just to 
+be certain, here is the $ACF$ graph of $white\_noise$:
+
+```{r}
+acf(white_noise, plot = TRUE, main="The ACF of the white_noise")
+
+```
+
+
+###Auto Correlation in the Bike Share Demand Data
+
+I have imputed the missing values into the original $train.csv$, and I have 
+saved the months of January of 2011 and February of 2011 into separate $.csv$ files.
+
+####Reading in the Data
+
+```{r}
+Jan2011 <- read.csv("Jan2011.csv")
+Feb2011 <- read.csv("Feb2011.csv")
+
+```
+
+####Looking at the Data
+
+```{r}
+axis_values <- seq(0, 500, by= 10)
+#par(mfrow=c(1,2))  #arranging the two graphs in one row
+plot(Jan2011$count, type="l", col=4, xaxt="n", xlim=c(0, 460))
+axis(1,axis_values )
+plot(Feb2011$count, type="l", col=3, xaxt="n")
+#plot(1:100, xaxt = "n")
+axis(1,axis_values )
+```
+
+Or, we could look at the data as a time series:
+
+```{r}
+Jan2011_ts <- ts(Jan2011$count, freq=365*24, start=c(2011,0) )
+Feb2011_ts <- ts(Feb2011$count, freq = 365*24, start=c(2011, 31*24))
+plot.ts(Jan2011_ts, col=4)
+plot.ts(Feb2011_ts, col=3)
+```
+
+
+####Is There Auto Correlation in the Januar 2011 and February 2011 time series?
+
+
+Let's look at the lagged scatter plots for each month:
+
+```{r}
+lag.plot(Jan2011_ts, lags=24, do.lines =TRUE, col=4)
+lag.plot(Feb2011_ts, lags=50, do.lines =TRUE, col=3)
+
+```
+
+And just to be entirely convincing, here are the $ACF$ graphs of the lags:
+
+```{r}
+acf(Jan2011_ts, plot = TRUE, main="The ACF for January 2011", col=4)
+acf(Feb2011_ts, plot = TRUE, main="The ACF for February 2011", col=3)
+
+```
